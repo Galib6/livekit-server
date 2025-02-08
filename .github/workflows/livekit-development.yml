@@ -23,14 +23,70 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           password: ${{ secrets.PROD_PASSWORD }}
           script: |
-            echo "Creating .env file"
-            cat <<EOF > .env
-            API_KEY=${{ secrets.API_KEY }}
-            API_SECRET=${{ secrets.API_SECRET }}
+            echo "Creating deployment directory"
+            mkdir -p ~/livekit-deployment
+            cd ~/livekit-deployment
+
+            echo "Creating necessary directories"
+            mkdir -p config
+
+            echo "Creating Dockerfile"
+            cat <<EOF > Dockerfile
+            FROM livekit/livekit-server:latest
+            WORKDIR /app
+            COPY config/livekit.template.yaml /app/livekit.template.yaml
+            COPY generate-config.sh /app/generate-config.sh
+            RUN chmod +x /app/generate-config.sh
+            ENTRYPOINT ["/bin/sh", "-c", "/app/generate-config.sh && /livekit-server --config /app/livekit.yaml"]
             EOF
 
-            echo "Verifying .env file contents"
-            cat .env
+            echo "Creating docker-compose.yml"
+            cat <<EOF > docker-compose.yml
+            version: '3.8'
+            services:
+              livekit:
+                build: .
+                ports:
+                  - "7880:7880"
+                  - "7881:7881"
+                  - "7882:7882/udp"
+                env_file:
+                  - .env
+                restart: unless-stopped
+            EOF
+
+            echo "Creating generate-config.sh"
+            cat <<EOF > generate-config.sh
+            #!/bin/sh
+            set -e
+            if [ -z "\$API_KEY" ] || [ -z "\$API_SECRET" ]; then
+              echo "❌ API_KEY or API_SECRET is missing!"
+              exit 1
+            fi
+            sed "s/API_KEY/\${API_KEY}/g; s/API_SECRET/\${API_SECRET}/g" /app/livekit.template.yaml > /app/livekit.yaml
+            echo "✅ livekit.yaml generated successfully!"
+            EOF
+
+            echo "Creating LiveKit template configuration"
+            cat <<EOF > config/livekit.template.yaml
+            port: 7880
+            rtc:
+              tcp_port: 7881
+              udp_port: 7882
+              use_external_ip: true
+            keys:
+              API_KEY: API_KEY
+              API_SECRET: API_SECRET
+            EOF
+
+            echo "Creating .env file"
+            cat <<EOF > .env
+            API_KEY=${{ secrets.LIVEKIT_API_KEY }}
+            API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}
+            EOF
+
+            echo "Setting correct permissions"
+            chmod +x generate-config.sh
 
             echo "Checking for Docker Compose"
             if ! command -v docker-compose &> /dev/null; then
@@ -39,8 +95,12 @@ jobs:
               sudo chmod +x /usr/local/bin/docker-compose
             fi
 
-            echo "Starting LiveKit server with Docker Compose"
-            docker-compose pull
-            docker-compose up -d --build
+            echo "Building and starting LiveKit server"
+            docker-compose down || true
+            docker-compose build --no-cache
+            docker-compose up -d
 
-            echo "LiveKit server deployed successfully"
+            echo "Showing logs"
+            docker-compose logs
+
+            echo "LiveKit server deployment completed"
