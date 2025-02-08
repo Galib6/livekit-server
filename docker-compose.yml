@@ -12,6 +12,5 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
     command: --config /etc/livekit.yaml
-    environment:
-      - LIVEKIT_API_KEY=k56645ytg4e55r
-      - LIVEKIT_API_SECRET=cvd5434wgf456yh546yhv456y456y
+    env_file:
+      - .env
