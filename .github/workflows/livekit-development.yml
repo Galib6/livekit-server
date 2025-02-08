@@ -1,19 +1,20 @@
-name: Deploy LiveKit Server
+# .github/workflows/deploy.yml
+name: LiveKit Server Deployment
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
-
-env:
-  DOCKER_COMPOSE_VERSION: "2.21.0"
+    branches: [main]
 
 jobs:
-  deploy:
+  Deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Login to DockerHub
+        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Deploy LiveKit Server to Production
         uses: appleboy/ssh-action@master
@@ -22,116 +23,24 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           password: ${{ secrets.PROD_PASSWORD }}
           script: |
-            # Create project directory
-            mkdir -p ~/livekit
-            cd ~/livekit
+            echo "Creating .env file"
+            cat <<EOF > .env
+            API_KEY=${{ secrets.LIVEKIT_API_KEY }}
+            API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}
+            EOF
 
-            # Create necessary configuration files
-            cat > docker-compose.yml <<'EOL'
-            version: '3.8'
+            echo "Verifying .env file contents"
+            cat .env
 
-            services:
-              livekit:
-                build: .
-                ports:
-                  - "7880:7880"
-                  - "7881:7881"
-                  - "7882:7882/udp"
-                  - "50000-60000:50000-60000/udp"
-                env_file:
-                  - .env
-                restart: unless-stopped
-                networks:
-                  - livekit-network
-                depends_on:
-                  - redis
-
-              redis:
-                image: redis:6-alpine
-                ports:
-                  - "6379:6379"
-                volumes:
-                  - redis-data:/data
-                restart: unless-stopped
-                networks:
-                  - livekit-network
-
-            networks:
-              livekit-network:
-                driver: bridge
-
-            volumes:
-              redis-data:
-            EOL
-
-            cat > Dockerfile <<'EOL'
-            FROM livekit/livekit-server:latest
-
-            WORKDIR /app
-
-            COPY config/livekit.template.yaml /app/livekit.template.yaml
-            COPY generate-config.sh /app/generate-config.sh
-
-            RUN chmod +x /app/generate-config.sh
-
-            ENTRYPOINT ["/bin/sh", "-c", "/app/generate-config.sh && /livekit-server --config /app/livekit.yaml"]
-            EOL
-
-            mkdir -p config
-            cat > config/livekit.template.yaml <<'EOL'
-            port: 7880
-
-            rtc:
-              tcp_port: 7881
-              port_range_start: 50000
-              port_range_end: 60000
-              use_external_ip: true
-              enable_loopback_candidate: false
-
-            redis:
-              address: redis:6379
-              username: ""
-              password: ""
-
-            keys:
-              API_KEY: API_SECRET
-
-            logging:
-              json: true
-              level: info
-
-            room:
-              enable_remote_unmute: true
-              max_participants: 100
-              empty_timeout: 300
-              cleanup_timeout: 60
-            EOL
-
-            cat > .env <<'EOL'
-            API_KEY=your_api_key_here
-            API_SECRET=your_api_secret_here
-            EOL
-
-            cat > generate-config.sh <<'EOL'
-            #!/bin/sh
-            set -e
-
-            if [ -z "$API_KEY" ] || [ -z "$API_SECRET" ]; then
-              echo "❌ API_KEY or API_SECRET is missing!"
-              exit 1
+            echo "Checking for Docker Compose"
+            if ! command -v docker-compose &> /dev/null; then
+              echo "Installing Docker Compose"
+              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
             fi
 
-            sed "s/API_KEY/${API_KEY}/g; s/API_SECRET/${API_SECRET}/g" /app/livekit.template.yaml > /app/livekit.yaml
-            echo "✅ livekit.yaml generated successfully!"
-            EOL
-
-            
-
-            # Set proper permissions
-            chmod +x generate-config.sh
-            
-            # Pull and start the containers
+            echo "Starting LiveKit server with Docker Compose"
             docker-compose pull
-            docker-compose up -d
+            docker-compose up -d --build
 
-            echo "✅ LiveKit deployment completed!"
+            echo "LiveKit server deployed successfully"
