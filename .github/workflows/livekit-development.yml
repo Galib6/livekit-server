@@ -14,9 +14,8 @@ jobs:
 
       - name: Create environment file for production
         run: |
-          mkdir -p environments
-          echo "API_KEY=${{ secrets.API_KEY }}" >> environments/production.env
-          echo "API_SECRET=${{ secrets.API_SECRET }}" >> environments/production.env
+          echo "API_KEY=${{ secrets.API_KEY }}" >> .env
+          echo "API_SECRET=${{ secrets.API_SECRET }}" >> .env
 
       - name: Print .env
         run: cat .env
