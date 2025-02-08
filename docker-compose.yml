@@ -1,16 +1,31 @@
-version: '3.8'
-
+version: '3'
 services:
   livekit:
     image: livekit/livekit-server:latest
-    container_name: livekit_server
-    restart: always
-    ports:
-      - "7880:7880"  # API & Signal
-      - "7881:7881"  # WebRTC Relay
-      - "5000-5200:5000-5200/udp"  # UDP Ports for WebRTC
-    volumes:
-      - ./livekit.yaml:/etc/livekit.yaml
     command: --config /etc/livekit.yaml
-    env_file:
-      - .env
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./config/livekit.yaml:/etc/livekit.yaml:ro
+    restart: unless-stopped
+    networks:
+      - livekit-network
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - livekit-network
+
+networks:
+  livekit-network:
+    driver: bridge
+
+volumes:
+  redis-data:

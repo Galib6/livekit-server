@@ -1,2 +1,12 @@
+# Environment variables
 .env
-/livekit.yaml
+
+# Logs
+*.log
+
+# Redis data
+data/
+
+# System Files
+.DS_Store
+Thumbs.db

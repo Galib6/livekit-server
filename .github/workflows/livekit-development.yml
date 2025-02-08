@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Logging to DockerHub
+      - name: Login to DockerHub
         run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Deploy LiveKit Server to Production
@@ -22,9 +22,14 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           password: ${{ secrets.PROD_PASSWORD }}
           script: |
-            echo "Stopping previous LiveKit server container"
-            docker stop livekit_server || true
-            docker rm livekit_server || true
+            echo "Navigating to project directory"
+            cd /path/to/your/livekit-project  # Update with actual server path
+
+            echo "Pulling latest changes from Git"
+            git pull origin main
+
+            echo "Stopping and removing previous LiveKit server container"
+            docker-compose down
 
             echo "Removing old LiveKit server image"
             docker rmi livekit/livekit-server:latest || true
@@ -33,13 +38,12 @@ jobs:
             docker pull livekit/livekit-server:latest
 
             echo "Creating .env file"
-            echo "LIVEKIT_API_KEY=${{ secrets.LIVEKIT_API_KEY }}" > .env
-            echo "LIVEKIT_API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}" >> .env
+            cat <<EOF > .env
+            API_KEY=${{ secrets.LIVEKIT_API_KEY }}
+            API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}
+            EOF
 
-            echo "Starting LiveKit server container"
-            docker run -d --restart always --name livekit_server \
-              --env-file .env \
-              -p 7880:7880 -p 7881:7881 -p 5000-5200:5000-5200/udp \
-              livekit/livekit-server:latest
+            echo "Starting LiveKit server with Docker Compose"
+            docker-compose up -d --build
 
             echo "LiveKit server deployed successfully"
