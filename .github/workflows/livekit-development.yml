@@ -26,6 +26,9 @@ jobs:
             docker stop livekit_server || true
             docker rm livekit_server || true
 
+            echo "Removing old LiveKit server image"
+            docker rmi livekit/livekit-server:latest || true
+
             echo "Pulling latest LiveKit image"
             docker pull livekit/livekit-server:latest
 
