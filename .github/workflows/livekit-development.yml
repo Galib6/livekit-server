@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Login to DockerHub
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+        run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
 
       - name: Deploy LiveKit Server to Production
         uses: appleboy/ssh-action@master
@@ -29,13 +29,8 @@ jobs:
             git pull origin main
 
             echo "Stopping and removing previous LiveKit server container"
-            docker-compose down
-
-            echo "Removing old LiveKit server image"
-            docker rmi livekit/livekit-server:latest || true
-
-            echo "Pulling latest LiveKit image"
-            docker pull livekit/livekit-server:latest
+            docker-compose stop livekit  # Stops only LiveKit, keeps Redis running
+            docker-compose rm -f livekit # Removes old LiveKit container
 
             echo "Creating .env file"
             cat <<EOF > .env
@@ -43,7 +38,7 @@ jobs:
             API_SECRET=${{ secrets.API_SECRET }}
             EOF
 
-            echo "Starting LiveKit server with Docker Compose"
-            docker-compose up -d --build
+            echo "Building and starting LiveKit server"
+            docker-compose up -d --build livekit
 
             echo "LiveKit server deployed successfully"
