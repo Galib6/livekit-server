@@ -5,14 +5,40 @@ on:
     branches: [main]
 
 jobs:
-  Deploy:
+  Build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
+      - name: Create environment file for production
+        run: |
+          mkdir -p environments
+          echo "API_KEY=${{ secrets.API_KEY }}" >> environments/production.env
+          echo "API_SECRET=${{ secrets.API_SECRET }}" >> environments/production.env
+
+      - name: Print .env
+        run: cat .env
+
       - name: Login to DockerHub
+        run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
+
+      - name: Build Docker image
+        run: docker build . --file Dockerfile --tag ${{ secrets.DOCKER_USER }}/livekit-server:latest
+
+      - name: Push Docker image to DockerHub
+        run: docker push ${{ secrets.DOCKER_USER }}/livekit-server:latest
+
+  Deploy:
+    needs: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Logging in to DockerHub
         run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin
 
       - name: Deploy LiveKit Server to Production
@@ -22,22 +48,6 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           password: ${{ secrets.PROD_PASSWORD }}
           script: |
-            echo "Navigating to project directory"
-            cd /path/to/your/livekit-project  # Update with actual server path
-
-            echo "Pulling latest changes from Git"
-            git pull origin main
-
-            echo "Stopping and removing previous LiveKit server container"
-            docker-compose stop livekit  # Stops only LiveKit, keeps Redis running
-            docker-compose rm -f livekit # Removes old LiveKit container
-
-            echo "Creating .env file"
-            cat <<EOF > .env
-            API_KEY=${{ secrets.API_KEY }}
-            API_SECRET=${{ secrets.API_SECRET }}
-            EOF
-
             echo "Building and starting LiveKit server"
             docker-compose up -d --build livekit
 
