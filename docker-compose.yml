@@ -1,14 +1,14 @@
 version: '3'
+
 services:
   livekit:
-    image: livekit/livekit-server:latest
-    command: --config /etc/livekit.yaml
+    build: .
     ports:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
-    volumes:
-      - ./config/livekit.yaml:/etc/livekit.yaml:ro
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - livekit-network

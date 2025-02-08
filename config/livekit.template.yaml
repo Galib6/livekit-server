@@ -12,7 +12,7 @@ redis:
   password: ""
 
 keys:
-  ${API_KEY}: ${API_SECRET}  # Using env variables directly
+  API_KEY: API_SECRET
 
 logging:
   json: false
