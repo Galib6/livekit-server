@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: livekit_server
+    restart: always
+    ports:
+      - "7880:7880"  # API & Signal
+      - "7881:7881"  # WebRTC Relay
+      - "5000-5200:5000-5200/udp"  # UDP Ports for WebRTC
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+    command: --config /etc/livekit.yaml
+    environment:
+      - LIVEKIT_API_KEY=k56645ytg4e55r
+      - LIVEKIT_API_SECRET=cvd5434wgf456yh546yhv456y456y

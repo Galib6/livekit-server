@@ -1,0 +1,42 @@
+name: LiveKit Server Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Logging to DockerHub
+        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Deploy LiveKit Server to Production
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          password: ${{ secrets.PROD_PASSWORD }}
+          script: |
+            echo "Stopping previous LiveKit server container"
+            docker stop livekit_server || true
+            docker rm livekit_server || true
+
+            echo "Pulling latest LiveKit image"
+            docker pull livekit/livekit-server:latest
+
+            echo "Creating .env file"
+            echo "LIVEKIT_API_KEY=${{ secrets.LIVEKIT_API_KEY }}" > .env
+            echo "LIVEKIT_API_SECRET=${{ secrets.LIVEKIT_API_SECRET }}" >> .env
+
+            echo "Starting LiveKit server container"
+            docker run -d --restart always --name livekit_server \
+              --env-file .env \
+              -p 7880:7880 -p 7881:7881 -p 5000-5200:5000-5200/udp \
+              livekit/livekit-server:latest
+
+            echo "LiveKit server deployed successfully"
