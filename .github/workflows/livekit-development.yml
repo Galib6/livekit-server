@@ -75,8 +75,7 @@ jobs:
               udp_port: 7882
               use_external_ip: true
             keys:
-              API_KEY: API_KEY
-              API_SECRET: API_SECRET
+              API_KEY: API_SECRET
             EOF
 
             echo "Creating .env file"
